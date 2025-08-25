@@ -1,0 +1,5 @@
+.Avatar {
+    Size = udim2 (100%,100%);
+    BackgroundTransparency = 0;
+    BackgroundColor3 = $AvatarBackgroundColor;
+}

@@ -3,8 +3,7 @@
   "defaultBase": "master",
   "namedInputs": {
     "default": ["{projectRoot}/**/*", "sharedGlobals"],
-    "production": ["default"],
-    "sharedGlobals": ["{workspaceRoot}/.github/workflows/ci.yml"]
+    "production": ["default"]
   },
   "nxCloudId": "68accbbfbe896b021886eac7",
   "plugins": [

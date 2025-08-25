@@ -1,5 +1,0 @@
-{
-  "baseDir": "src/client/lumina",
-  "componentsDir": "{baseDir}/components",
-  "libDir": "{baseDir}/lib"
-}
