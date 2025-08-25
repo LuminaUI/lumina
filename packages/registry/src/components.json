@@ -1,0 +1,22 @@
+{
+  "avatar": {
+    "name": "Avatar",
+    "version": "0.1.0",
+    "description": "Avatar component",
+    "templates": [
+      "components/avatar/Avatar.tsx"
+    ],
+    "style": {
+      "rsml": ["components/avatar/Avatar.rsml"]
+    },
+    "peerDeps": {
+      "@rbxts/react": "^17.2.3"
+    },
+    "register": [
+      {
+        "file": "lumina/components/index.ts",
+        "export": "export * from './avatar/Avatar';"
+      }
+    ]
+  }
+}
