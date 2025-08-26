@@ -74,7 +74,7 @@ static SPARKLE: Emoji<'_, '_> = Emoji("✨ ", "");
 static PACKAGES: [&str; 1] = ["@rbxts/react"];
 
 pub fn init_command(mp: &MultiProgress) -> Result<(), InitError> {
-    let config_file = Asset::get("lumina.config.json").ok_or_else(|| InitError::ConfigJson)?;
+    let config_file = Asset::get("lumina.config.json").ok_or(InitError::ConfigJson)?;
     let config = serde_json::from_slice::<Config>(config_file.data.as_ref())?;
 
     let init_pb = mp.add(ProgressBar::new(4));
@@ -124,7 +124,7 @@ fn create_default_files(config: &Config, config_file: &EmbeddedFile) -> Result<(
     fs::create_dir_all(&config.components_dir)?;
     fs::create_dir_all(&config.lib_dir)?;
 
-    fs::write(&project_dir.join("lumina.config.json"), &config_file.data)?;
+    fs::write(project_dir.join("lumina.config.json"), &config_file.data)?;
 
     Ok(())
 }
@@ -133,7 +133,7 @@ fn check_for_required_deps(pb: &ProgressBar) -> Result<(), InitError> {
     let mut installed = true;
     for pkg in PACKAGES {
         let exit_status = Command::new(NPM)
-            .args(&["ls", pkg, "--depth=0"])
+            .args(["ls", pkg, "--depth=0"])
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()?;
@@ -169,7 +169,7 @@ fn check_for_required_deps(pb: &ProgressBar) -> Result<(), InitError> {
 }
 
 fn install_dependencies(package: &str, pb: &ProgressBar) -> Result<(), InitError> {
-    let exit_status = Command::new(NPM).args(&["i", package]).status()?;
+    let exit_status = Command::new(NPM).args(["i", package]).status()?;
 
     if !exit_status.success() {
         pb.abandon();

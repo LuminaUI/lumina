@@ -29,9 +29,9 @@ pub enum MainError {
 
 cfg_if!(
     if #[cfg(windows)] {
-        pub const NPM: &'static str = "npm.cmd";
+        pub const NPM: &str = "npm.cmd";
     } else {
-        pub const NPM: &'static str = "npm";
+        pub const NPM: &str = "npm";
     }
 );
 
