@@ -3,5 +3,5 @@
   "componentsDir": "{baseDir}/components",
   "libDir": "{baseDir}/lib",
   "registry": "https://raw.githubusercontent.com/LuminaUI/lumina/master/packages/registry/src/components.json",
-  "templates": "https://github.com/LuminaUI/lumina/tree/master/packages/registry/src/components"
+  "templates": "https://raw.githubusercontent.com/LuminaUI/lumina/master/packages/registry/src/components"
 }
