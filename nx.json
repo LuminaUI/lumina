@@ -30,7 +30,8 @@
           "targetName": "typecheck"
         }
       }
-    }
+    },
+    "@monodon/rust"
   ],
   "release": {
     "version": {
