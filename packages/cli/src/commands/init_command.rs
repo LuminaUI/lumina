@@ -1,14 +1,16 @@
-use crate::util::step::step;
-use crate::{Asset, NPM};
-use console::{Emoji, style};
-use indicatif::style::TemplateError;
-use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use crate::{
+    Asset, NPM, inc_step,
+    util::step::{CLIP, LOOKING_GLASS, PAPER, SPARKLE, Step, TRUCK, step},
+};
+use indicatif::{MultiProgress, style::TemplateError};
 use log::error;
 use rust_embed::EmbeddedFile;
 use serde::{Deserialize, Serialize, de::Deserializer};
-use std::env::current_dir;
-use std::fs;
-use std::process::{Command, Stdio};
+use std::{
+    env::current_dir,
+    fs,
+    process::{Command, Stdio},
+};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -39,9 +41,9 @@ struct Config {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ConfigRaw {
-    base_dir: String,
     components_dir: String,
     lib_dir: String,
+    base_dir: String,
     registry: String,
     templates: String,
 }
@@ -52,24 +54,16 @@ impl<'de> Deserialize<'de> for Config {
         D: Deserializer<'de>,
     {
         let raw = ConfigRaw::deserialize(deserializer)?;
-        let base = raw.base_dir;
-        let components = raw.components_dir.replace("{baseDir}", &base);
-        let lib = raw.lib_dir.replace("{baseDir}", &base);
-        Ok(Config {
-            base_dir: base,
-            components_dir: components,
-            lib_dir: lib,
+
+        Ok(Self {
+            components_dir: raw.components_dir.replace("{baseDir}", &raw.base_dir),
+            lib_dir: raw.lib_dir.replace("{baseDir}", &raw.base_dir),
+            base_dir: raw.base_dir,
             registry: raw.registry,
             templates: raw.templates,
         })
     }
 }
-
-static LOOKING_GLASS: Emoji<'_, '_> = Emoji("🔍  ", "");
-static TRUCK: Emoji<'_, '_> = Emoji("🚚  ", "");
-static CLIP: Emoji<'_, '_> = Emoji("🔗  ", "");
-static PAPER: Emoji<'_, '_> = Emoji("📃  ", "");
-static SPARKLE: Emoji<'_, '_> = Emoji("✨ ", "");
 
 static PACKAGES: [&str; 1] = ["@rbxts/react"];
 
@@ -77,42 +71,21 @@ pub fn init_command(mp: &MultiProgress) -> Result<(), InitError> {
     let config_file = Asset::get("lumina.config.json").ok_or(InitError::ConfigJson)?;
     let config = serde_json::from_slice::<Config>(config_file.data.as_ref())?;
 
-    let init_pb = mp.add(ProgressBar::new(4));
+    let mut init_pb = Step::new(mp, 4, 4)?;
 
-    init_pb.set_style(
-        ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}")?
-            .progress_chars("=>-"),
+    step!(
+        init_pb,
+        CLIP,
+        "Generating default files...",
+        create_default_files(&config, &config_file)?
     );
-
-    step(
-        &init_pb,
-        format!(
-            "{} {}Generating default files...",
-            style("[1/4]").bold().dim(),
-            CLIP
-        ),
-        || create_default_files(&config, &config_file),
-    )?;
-
-    step(
-        &init_pb,
-        format!(
-            "{} {}Checking for dependencies...",
-            style("[2/4]").bold().dim(),
-            LOOKING_GLASS
-        ),
-        || check_for_required_deps(&init_pb),
-    )?;
-
-    step(
-        &init_pb,
-        format!(
-            "{} {}Finished initializing lumina!",
-            style("[4/4]").bold().dim(),
-            SPARKLE
-        ),
-        || (),
+    inc_step!(
+        init_pb,
+        LOOKING_GLASS,
+        "Checking for dependencies...",
+        check_for_required_deps(&mut init_pb)?
     );
+    inc_step!(init_pb, SPARKLE, "Finished initializing lumina!");
 
     Ok(())
 }
@@ -129,8 +102,11 @@ fn create_default_files(config: &Config, config_file: &EmbeddedFile) -> Result<(
     Ok(())
 }
 
-fn check_for_required_deps(pb: &ProgressBar) -> Result<(), InitError> {
+fn check_for_required_deps(pb: &mut Step) -> Result<(), InitError> {
     let mut installed = true;
+
+    pb.inc();
+
     for pkg in PACKAGES {
         let exit_status = Command::new(NPM)
             .args(["ls", pkg, "--depth=0"])
@@ -139,40 +115,29 @@ fn check_for_required_deps(pb: &ProgressBar) -> Result<(), InitError> {
             .status()?;
 
         if !exit_status.success() {
-            step(
+            step!(
                 pb,
-                format!(
-                    "{} {}Installing required dependencies",
-                    style("[3/4]").bold().dim(),
-                    TRUCK
-                ),
-                || install_dependencies(pkg, pb),
-            )?;
-
+                TRUCK,
+                "Installing required dependencies",
+                install_dependencies(pkg, pb)?
+            );
             installed = false;
         }
     }
 
     if installed {
-        step(
-            pb,
-            format!(
-                "{} {}Dependencies already installed...",
-                style("[3/4]").bold().dim(),
-                PAPER
-            ),
-            || (),
-        );
+        step!(pb, PAPER, "Dependencies already installed...");
     }
 
     Ok(())
 }
 
-fn install_dependencies(package: &str, pb: &ProgressBar) -> Result<(), InitError> {
+fn install_dependencies(package: &str, pb: &Step) -> Result<(), InitError> {
     let exit_status = Command::new(NPM).args(["i", package]).status()?;
 
     if !exit_status.success() {
         pb.abandon();
+
         return Err(InitError::InstallError(package.to_string()));
     }
 
