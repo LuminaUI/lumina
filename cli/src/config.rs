@@ -13,6 +13,7 @@ pub struct Config {
     pub lib_dir: PathBuf,
     pub registry: String,
     pub templates: String,
+    pub themes: String,
 }
 
 #[derive(Deserialize)]
@@ -24,6 +25,7 @@ struct ConfigRaw {
     base_dir: String,
     registry: String,
     templates: String,
+    themes: String,
 }
 
 impl<'de> Deserialize<'de> for Config {
@@ -40,6 +42,7 @@ impl<'de> Deserialize<'de> for Config {
             base_dir: raw.base_dir.into(),
             registry: raw.registry,
             templates: raw.templates,
+            themes: raw.themes,
         })
     }
 }
