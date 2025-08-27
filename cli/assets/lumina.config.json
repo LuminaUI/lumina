@@ -3,6 +3,7 @@
   "componentsDir": "{baseDir}/components",
   "libDir": "{baseDir}/lib",
   "stylesDir": "{baseDir}/styles",
-  "registry": "https://raw.githubusercontent.com/LuminaUI/lumina/master/packages/registry/src/components.json",
-  "templates": "https://raw.githubusercontent.com/LuminaUI/lumina/master/packages/registry/src/components"
+  "registry": "https://raw.githubusercontent.com/LuminaUI/lumina/master/registry/components.json",
+  "templates": "https://raw.githubusercontent.com/LuminaUI/lumina/master/components",
+  "themes": "https://raw.githubusercontent.com/LuminaUI/lumina/master/registry/themes.json"
 }

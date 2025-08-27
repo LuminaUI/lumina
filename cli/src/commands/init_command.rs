@@ -59,9 +59,10 @@ pub fn init_command(mp: &MultiProgress) -> Result<(), InitError> {
 fn create_default_files(config: &Config) -> Result<(), InitError> {
     let project_dir = current_dir()?;
 
+    // TODO: This will later be replaced from a select menu, for now there is only 1 theme so we will default to it.
     let default = STYLES
         .get_file("Default.rsml")
-        .ok_or(InitError::StyleNotFound("Default.rsml".to_string()))?;
+        .ok_or(InitError::StyleNotFound("theme.rsml".to_string()))?;
 
     fs::create_dir_all(&config.lib_dir)?;
 

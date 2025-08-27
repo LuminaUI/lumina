@@ -2,7 +2,7 @@ name: Lint and format
 on:
   push:
     paths:
-      - 'packages/**/*.rs'
+      - 'cli/**/*.rs'
   pull_request: null
 env:
   RUSTFLAGS: "-Dwarnings"
