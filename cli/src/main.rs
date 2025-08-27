@@ -18,10 +18,10 @@ cfg_if!(
     }
 );
 
-pub static COMPONENTS: include_dir::Dir<'_> = include_dir!("../components");
-pub static ASSETS: include_dir::Dir<'_> = include_dir!("./assets");
-pub static LIBS: include_dir::Dir<'_> = include_dir!("../lib");
-pub static STYLES: include_dir::Dir<'_> = include_dir!("../styles");
+pub static COMPONENTS: include_dir::Dir<'_> = include_dir!("./components");
+pub static ASSETS: include_dir::Dir<'_> = include_dir!("./cli/assets");
+pub static LIBS: include_dir::Dir<'_> = include_dir!("./lib");
+pub static STYLES: include_dir::Dir<'_> = include_dir!("./styles");
 
 #[derive(Error, Debug)]
 pub enum MainError {
