@@ -1,0 +1,20 @@
+{
+  "avatar": {
+    "name": "Avatar",
+    "version": "0.1.0",
+    "description": "Avatar component",
+    "templates": [
+      "components/avatar/Avatar.tsx"
+    ],
+    "style": "components/avatar/Avatar.rsml",
+    "peerDeps": {
+      "@rbxts/react": "^17.2.3"
+    },
+    "register": [
+      {
+        "file": "components/init.luau",
+        "export": "Avatar: require('./avatar');"
+      }
+    ]
+  }
+}

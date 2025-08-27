@@ -1,0 +1,30 @@
+name: Lint and format
+on:
+  push:
+    paths:
+      - 'packages/**/*.rs'
+  pull_request: null
+env:
+  RUSTFLAGS: "-Dwarnings"
+jobs:
+  lint_format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          override: true
+          toolchain: stable
+          components: rustfmt
+      - name: Run clippy and rustfmt
+        run: |
+          cargo clippy --all-targets --all-features
+          cargo fmt
+      - name: Commit changes
+        uses: EndBug/add-and-commit@v9
+        with:
+          message: "chore: run lint and format"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
