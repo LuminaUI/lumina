@@ -77,6 +77,7 @@ pub fn config() -> &'static Config {
     CONFIG.get().expect("Config not initialized")
 }
 
+#[allow(dead_code)]
 pub fn try_config() -> Result<&'static Config, ConfigError> {
     CONFIG.get().ok_or(ConfigError::NotInitialized)
 }

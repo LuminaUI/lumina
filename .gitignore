@@ -1,5 +1,5 @@
 # Rust output directory
-/cli/target
+target/
 
 # Roblox model and place files in the root, used for debugging
 /*.rbxm

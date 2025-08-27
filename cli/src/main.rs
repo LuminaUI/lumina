@@ -1,4 +1,4 @@
-use crate::commands::init_command::init_command;
+use crate::commands::{add_command::add_command, init_command::init_command};
 use cfg_if::cfg_if;
 use clap::{Parser, Subcommand};
 use include_dir::include_dir;
@@ -36,6 +36,9 @@ pub enum MainError {
 
     #[error(transparent)]
     ConfigError(#[from] config::ConfigError),
+
+    #[error(transparent)]
+    AddError(#[from] commands::add_command::AddError),
 }
 
 #[derive(Parser)]
@@ -51,6 +54,11 @@ enum Commands {
         about = "Initializes lumina in your roblox-ts project and installing it's dependencies"
     )]
     Init,
+    #[command(about = "Adds the desired component(s) to the project")]
+    Add {
+        #[arg(value_enum, required = true)]
+        components: Vec<String>,
+    },
 }
 
 fn main() -> Result<(), MainError> {
@@ -70,6 +78,7 @@ fn main() -> Result<(), MainError> {
         Commands::Init => {
             init_command(&mp)?;
         }
+        Commands::Add { components } => add_command(components, &mp)?,
     }
 
     Ok(())

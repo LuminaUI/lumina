@@ -3,9 +3,7 @@
     "name": "Avatar",
     "version": "0.1.0",
     "description": "Avatar component",
-    "templates": [
-      "components/avatar/Avatar.tsx"
-    ],
+    "templates": ["components/avatar/index.tsx"],
     "style": "components/avatar/Avatar.rsml",
     "peerDeps": {
       "@rbxts/react": "^17.2.3"
