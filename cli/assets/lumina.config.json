@@ -1,0 +1,8 @@
+{
+  "baseDir": "src/client/lumina",
+  "componentsDir": "{baseDir}/components",
+  "libDir": "{baseDir}/lib",
+  "stylesDir": "{baseDir}/styles",
+  "registry": "https://raw.githubusercontent.com/LuminaUI/lumina/master/packages/registry/src/components.json",
+  "templates": "https://raw.githubusercontent.com/LuminaUI/lumina/master/packages/registry/src/components"
+}
