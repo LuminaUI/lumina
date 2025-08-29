@@ -1,13 +1,19 @@
-use crate::commands::{add_command::add_command, init_command::init_command};
+use crate::commands::init_command::init_command;
+use crate::schemas::InitSchema;
 use cfg_if::cfg_if;
+use clap::ArgAction;
+use clap::ValueHint;
 use clap::{Parser, Subcommand};
-use include_dir::include_dir;
 use indicatif::MultiProgress;
 use indicatif_log_bridge::LogWrapper;
+use std::path::PathBuf;
 use thiserror::Error;
 
 mod commands;
 mod config;
+mod errors;
+mod preflights;
+mod schemas;
 mod util;
 
 cfg_if!(
@@ -17,11 +23,6 @@ cfg_if!(
         pub const NPM: &str = "npm";
     }
 );
-
-pub static COMPONENTS: include_dir::Dir<'_> = include_dir!("./components");
-pub static ASSETS: include_dir::Dir<'_> = include_dir!("./cli/assets");
-pub static LIBS: include_dir::Dir<'_> = include_dir!("./lib");
-pub static STYLES: include_dir::Dir<'_> = include_dir!("./styles");
 
 #[derive(Error, Debug)]
 pub enum MainError {
@@ -33,12 +34,6 @@ pub enum MainError {
 
     #[error(transparent)]
     InitError(#[from] commands::init_command::InitError),
-
-    #[error(transparent)]
-    ConfigError(#[from] config::ConfigError),
-
-    #[error(transparent)]
-    AddError(#[from] commands::add_command::AddError),
 }
 
 #[derive(Parser)]
@@ -53,7 +48,16 @@ enum Commands {
     #[command(
         about = "Initializes lumina in your roblox-ts project and installing it's dependencies"
     )]
-    Init,
+    Init {
+        #[arg(value_hint = ValueHint::DirPath, default_value = ".", short, long)]
+        cwd: PathBuf,
+        #[arg(short, long, action = ArgAction::SetTrue)]
+        yes: bool,
+        #[arg(short, long, action = ArgAction::SetTrue)]
+        force: bool,
+        #[arg(short, long, action = ArgAction::SetTrue)]
+        skip_preflight: bool,
+    },
     #[command(about = "Adds the desired component(s) to the project")]
     Add {
         #[arg(value_enum, required = true)]
@@ -62,8 +66,6 @@ enum Commands {
 }
 
 fn main() -> Result<(), MainError> {
-    config::init_config()?;
-
     let logger =
         env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).build();
     let level = logger.filter();
@@ -75,10 +77,23 @@ fn main() -> Result<(), MainError> {
     log::set_max_level(level);
 
     match &cli.command {
-        Commands::Init => {
-            init_command(&mp)?;
+        Commands::Init {
+            yes,
+            force,
+            cwd,
+            skip_preflight,
+        } => {
+            init_command(
+                &mp,
+                InitSchema {
+                    yes: *yes,
+                    force: *force,
+                    cwd: cwd.clone(),
+                    skip_preflight: *skip_preflight,
+                },
+            )?;
         }
-        Commands::Add { components } => add_command(components, &mp)?,
+        Commands::Add { components } => println!("Adding components {:?}", components),
     }
 
     Ok(())

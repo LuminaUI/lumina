@@ -1,16 +1,19 @@
+use crate::config::{Config, ConfigError};
+use crate::preflights::init::{PreflightInitErrors, preflight_init};
+use crate::schemas::InitSchema;
 use crate::{
-    LIBS, NPM, STYLES,
-    config::Config,
-    inc_step,
-    util::step::{CLIP, LOOKING_GLASS, PAPER, SPARKLE, Step, TRUCK, step},
+    NPM, inc_step,
+    util::step::{LOOKING_GLASS, PAPER, SPARKLE, Step, TRUCK, step},
 };
-use include_dir::Dir;
+use console::style;
+use dialoguer::Confirm;
 use indicatif::{MultiProgress, style::TemplateError};
-use log::error;
+use log::{error, info};
+use std::env::current_dir;
+use std::fs::File;
+use std::io::BufWriter;
 use std::{
-    env::current_dir,
     fs::{self},
-    path::Path,
     process::{Command, Stdio},
 };
 use thiserror::Error;
@@ -30,20 +33,43 @@ pub enum InitError {
 
     #[error("Failed to grab style `{0}`")]
     StyleNotFound(String),
+
+    #[error(transparent)]
+    PreflightError(#[from] PreflightInitErrors),
+
+    #[error(transparent)]
+    ConfigError(#[from] ConfigError),
 }
 
 static PACKAGES: [&str; 1] = ["@rbxts/react"];
 
-pub fn init_command(mp: &MultiProgress) -> Result<(), InitError> {
-    let mut init_pb = Step::new(mp, 4, 4)?;
+pub fn init_command(mp: &MultiProgress, options: InitSchema) -> Result<(), InitError> {
+    let mut init_pb = Step::new(mp, 5, 5)?;
 
-    let config = crate::config::config();
+    if !options.skip_preflight {
+        inc_step!(init_pb, TRUCK, "Starting preflight checks.");
+        preflight_init(options.clone())?;
+
+        if !&options.yes {
+            let confirmation = Confirm::new()
+                .with_prompt(format!(
+                    "Write configuration to {}. Proceed?",
+                    style("components.json").bold().cyan()
+                ))
+                .interact()
+                .unwrap();
+
+            if !confirmation {
+                std::process::exit(0);
+            }
+        }
+    }
 
     step!(
         init_pb,
-        CLIP,
-        "Generating default files...",
-        create_default_files(&config)?
+        PAPER,
+        "Writing components.json",
+        generate_components_json(&options)?
     );
     inc_step!(
         init_pb,
@@ -56,28 +82,13 @@ pub fn init_command(mp: &MultiProgress) -> Result<(), InitError> {
     Ok(())
 }
 
-fn create_default_files(config: &Config) -> Result<(), InitError> {
-    let project_dir = current_dir()?;
+fn generate_components_json(options: &InitSchema) -> Result<(), InitError> {
+    // TODO: Merge backup config if it exists and force is not being used
+    let _backup_path = current_dir()?.join("components.json.bak");
 
-    // TODO: This will later be replaced from a select menu, for now there is only 1 theme so we will default to it.
-    let default = STYLES
-        .get_file("Default.rsml")
-        .ok_or(InitError::StyleNotFound("theme.rsml".to_string()))?;
-
-    fs::create_dir_all(&config.lib_dir)?;
-
-    materialize_dir(&LIBS, &config.lib_dir)?;
-
-    fs::create_dir_all(&config.styles_dir)?;
-    fs::create_dir_all(&config.base_dir)?;
-    fs::create_dir_all(&config.components_dir)?;
-
-    fs::write(
-        project_dir.join("lumina.config.json"),
-        serde_json::to_string(&config)?,
-    )?;
-
-    fs::write(config.styles_dir.join("Default.rsml"), default.contents())?;
+    let file = File::create(options.cwd.join("components.json"))?;
+    let writer = BufWriter::new(file);
+    serde_json::to_writer_pretty(writer, &Config::new())?;
 
     Ok(())
 }
@@ -119,21 +130,6 @@ fn install_dependencies(package: &str, pb: &Step) -> Result<(), InitError> {
         pb.abandon();
 
         return Err(InitError::InstallError(package.to_string()));
-    }
-
-    Ok(())
-}
-
-// TODO: Move this function somewhere else
-fn materialize_dir(src: &Dir<'_>, dst: &Path) -> Result<(), InitError> {
-    fs::create_dir_all(&dst)?;
-
-    for entry in src.entries() {
-        if let Some(file) = entry.as_file() {
-            fs::write(&dst.join(file.path().file_name().unwrap()), file.contents())?;
-        } else if let Some(dir) = entry.as_dir() {
-            materialize_dir(dir, &dst.join(dir.path().file_name().unwrap()))?;
-        }
     }
 
     Ok(())

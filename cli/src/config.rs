@@ -1,83 +1,79 @@
-use std::{path::PathBuf, sync::OnceLock};
-
-use serde::{Deserialize, Serialize, de::Deserializer};
+use serde::{Deserialize, Serialize};
+use std::env::current_dir;
+use std::fs::File;
+use std::io::Read;
 use thiserror::Error;
-
-use crate::ASSETS;
-
-#[derive(Serialize, Debug)]
-pub struct Config {
-    pub base_dir: PathBuf,
-    pub components_dir: PathBuf,
-    pub styles_dir: PathBuf,
-    pub lib_dir: PathBuf,
-    pub registry: String,
-    pub templates: String,
-    pub themes: String,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ConfigRaw {
-    components_dir: String,
-    lib_dir: String,
-    styles_dir: String,
-    base_dir: String,
-    registry: String,
-    templates: String,
-    themes: String,
-}
-
-impl<'de> Deserialize<'de> for Config {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let raw = ConfigRaw::deserialize(deserializer)?;
-
-        Ok(Self {
-            components_dir: raw.components_dir.replace("{baseDir}", &raw.base_dir).into(),
-            lib_dir: raw.lib_dir.replace("{baseDir}", &raw.base_dir).into(),
-            styles_dir: raw.styles_dir.replace("{baseDir}", &raw.base_dir).into(),
-            base_dir: raw.base_dir.into(),
-            registry: raw.registry,
-            templates: raw.templates,
-            themes: raw.themes,
-        })
-    }
-}
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
-    #[error("Could not find the requested file: `{0}`")]
-    AssetError(String),
-    #[error("transparent")]
-    SerdeError(#[from] serde_json::Error),
-    #[error("Config already initialized")]
-    AlreadyInitialized,
-    #[error("Config not initialized")]
-    NotInitialized,
+    #[error("There is no current directory")]
+    NoCurrentDir,
+    #[error("There is no components.json at `{0}`")]
+    NoComponentsJson(String),
+    #[error("components.json file is empty")]
+    EmptyComponentsJson,
+    #[error(transparent)]
+    SerdeJson(#[from] serde_json::Error),
 }
 
-static CONFIG: OnceLock<Config> = OnceLock::new();
-
-pub fn init_config() -> Result<(), ConfigError> {
-    let config_file = ASSETS
-        .get_file("lumina.config.json")
-        .ok_or(ConfigError::AssetError("lumina.config.json".to_string()))?;
-
-    let config = serde_json::from_slice::<Config>(config_file.contents())?;
-
-    CONFIG.set(config).map_err(|_| ConfigError::AlreadyInitialized)?;
-
-    Ok(())
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Aliases {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    components: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ui: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    utils: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    hooks: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    lib: Option<String>,
 }
 
-pub fn config() -> &'static Config {
-    CONFIG.get().expect("Config not initialized")
+// Plans for new themes later on.
+#[derive(Serialize, Deserialize, Debug)]
+pub enum Themes {
+    Default,
 }
 
-#[allow(dead_code)]
-pub fn try_config() -> Result<&'static Config, ConfigError> {
-    CONFIG.get().ok_or(ConfigError::NotInitialized)
+impl Themes {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Themes::Default => "default",
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Config {
+    pub theme: Themes,
+    pub aliases: Aliases,
+}
+
+impl Config {
+    pub fn new() -> Config {
+        Self {
+            theme: Themes::Default,
+            aliases: Aliases {
+                components: Some(String::from("@components/")),
+                ui: Some(String::from("@components/ui")),
+                utils: None,
+                lib: None,
+                hooks: None,
+            },
+        }
+    }
+
+    pub fn get_config() -> Result<Config, ConfigError> {
+        let current_directory = current_dir().map_err(|_| ConfigError::NoCurrentDir)?;
+        let config_path = current_directory.join("components.json");
+
+        let mut f = File::open(config_path).map_err(|_| {
+            ConfigError::NoComponentsJson(current_directory.to_string_lossy().to_string())
+        })?;
+        let mut contents = String::new();
+        f.read_to_string(&mut contents).map_err(|_| ConfigError::EmptyComponentsJson)?;
+
+        Ok(serde_json::from_str::<Config>(&contents)?)
+    }
 }
