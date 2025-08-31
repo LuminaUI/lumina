@@ -1,10 +1,9 @@
-use crate::errors::Errors;
-use crate::schemas::InitSchema;
+use crate::commands::init_command::InitSchema;
 use crate::util::get_project_info::get_project_info;
 use crate::util::spinner::Spinner;
-use console::style;
+use console::{StyledObject, style};
 use log::error;
-use std::collections::HashMap;
+use std::fmt::Debug;
 use std::fs;
 use thiserror::Error;
 
@@ -12,29 +11,49 @@ use thiserror::Error;
 pub enum PreflightInitErrors {
     #[error(transparent)]
     IoError(#[from] std::io::Error),
+    #[error("CWD could not be resolved.")]
+    MissingCWD,
+    #[error("package.json file was not found")]
+    PackageJsonNotFound,
+    #[error(
+        "No import alias found in your tsconfig.json file, do so by adding {0} to your paths in tsconfig.json"
+    )]
+    NoImportAliasFound(String),
+    #[error(
+        "A {0} file already exists at {1}\nTo start over, remove the {2} file and run {3} again."
+    )]
+    ComponentsJsonExists(
+        StyledObject<&'static str>,
+        StyledObject<String>,
+        StyledObject<&'static str>,
+        StyledObject<&'static str>,
+    ),
 }
 
-pub fn preflight_init(options: InitSchema) -> Result<HashMap<Errors, bool>, PreflightInitErrors> {
-    let mut errors = HashMap::<Errors, bool>::new();
+pub fn preflight_init(options: InitSchema) -> Result<(), PreflightInitErrors> {
+    if !fs::exists(&options.cwd)? {
+        return Err(PreflightInitErrors::MissingCWD);
+    }
 
-    if !fs::exists(&options.cwd)? || !fs::exists(&options.cwd.join("package.json"))? {
-        errors.insert(Errors::MissingDirOrEmptyProject, true);
-        return Ok(errors);
+    if !fs::exists(&options.cwd.join("package.json"))? {
+        return Err(PreflightInitErrors::PackageJsonNotFound);
     }
 
     let project_spinner = Spinner::spinner("Preflight checks.");
 
     if fs::exists(&options.cwd.join("components.json"))? {
         project_spinner.abandon();
-        error!(
-            "A {} file already exists at {:#?}\nTo start over, remove the {} file and run {} again.",
+        let cwd_string = options.cwd.to_string_lossy().to_string();
+        let err = Err(PreflightInitErrors::ComponentsJsonExists(
             style("components.json").bold().cyan(),
-            style(options.cwd).bold().dim(),
+            style(cwd_string).bold().dim(),
             style("components.json").bold().cyan(),
-            style("init").bold()
-        );
-        std::process::exit(1);
+            style("init").bold(),
+        ));
+        return err;
     }
+
+    project_spinner.finish();
 
     let project_info = get_project_info(&options.cwd);
 
@@ -50,17 +69,12 @@ pub fn preflight_init(options: InitSchema) -> Result<HashMap<Errors, bool>, Pref
 
     if project_info.unwrap().alias_prefix.is_none() {
         ts_config_spinner.abandon_with_message("Import Alias Missing");
-        errors.insert(Errors::ImportAliasMissing, true);
+        return Err(PreflightInitErrors::NoImportAliasFound(
+            style("\"@/*\": [\"./src/shared/*\"]").bold().cyan().to_string(),
+        ));
     }
 
-    if errors.len() > 0 {
-        if errors.get(&Errors::ImportAliasMissing).is_some() {
-            error!(
-                "No import alias found in your tsconfig.json file, do so by adding {} to your paths in tsconfig.json",
-                style("\"@/*\": [\"./*\"]").bold().cyan()
-            );
-        }
-    }
+    ts_config_spinner.finish();
 
-    Ok(errors)
+    Ok(())
 }

@@ -41,7 +41,7 @@ pub struct PackageJson {
 
     // Dependencies
     pub dependencies: Option<BTreeMap<String, String>>,
-    #[serde(rename = "devDependencies")]
+    #[serde(rename = "dev_dependencies")]
     pub dev_dependencies: Option<BTreeMap<String, String>>,
     #[serde(rename = "peerDependencies")]
     pub peer_dependencies: Option<BTreeMap<String, String>>,

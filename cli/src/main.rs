@@ -1,19 +1,20 @@
-use crate::commands::init_command::init_command;
-use crate::schemas::InitSchema;
+use crate::commands::add_command::{AddSchema, add_command};
+use crate::commands::init_command::{InitSchema, init_command};
 use cfg_if::cfg_if;
 use clap::ArgAction;
 use clap::ValueHint;
 use clap::{Parser, Subcommand};
 use indicatif::MultiProgress;
 use indicatif_log_bridge::LogWrapper;
+use log::error;
+use reqwest::Client;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 use thiserror::Error;
 
 mod commands;
 mod config;
-mod errors;
 mod preflights;
-mod schemas;
 mod util;
 
 cfg_if!(
@@ -34,6 +35,9 @@ pub enum MainError {
 
     #[error(transparent)]
     InitError(#[from] commands::init_command::InitError),
+
+    #[error(transparent)]
+    AddError(#[from] commands::add_command::AddError),
 }
 
 #[derive(Parser)]
@@ -43,29 +47,33 @@ struct Cli {
     command: Commands,
 }
 
+pub static HTTPCLIENT: LazyLock<Client> = LazyLock::new(|| Client::new());
+
 #[derive(Subcommand)]
 enum Commands {
     #[command(
         about = "Initializes lumina in your roblox-ts project and installing it's dependencies"
     )]
     Init {
-        #[arg(value_hint = ValueHint::DirPath, default_value = ".", short, long)]
+        #[arg(value_hint = ValueHint::DirPath, default_value = ".", short, long, help = "Directory you want to init into")]
         cwd: PathBuf,
-        #[arg(short, long, action = ArgAction::SetTrue)]
+        #[arg(short, long, action = ArgAction::SetTrue, help = "Whether or not to skip prompt for confirmation in generating the components.json")]
         yes: bool,
-        #[arg(short, long, action = ArgAction::SetTrue)]
+        #[arg(short, long, action = ArgAction::SetTrue, help = "Whether or not to force initialization despite any checks")]
         force: bool,
-        #[arg(short, long, action = ArgAction::SetTrue)]
+        #[arg(short, long, action = ArgAction::SetTrue, help = "Whether or not to skip preflight checks and try and generate the components.json.")]
         skip_preflight: bool,
     },
     #[command(about = "Adds the desired component(s) to the project")]
     Add {
-        #[arg(value_enum, required = true)]
+        #[arg(value_hint = ValueHint::DirPath, default_value = ".", short, long, help = "Directory you want to init into")]
+        cwd: PathBuf,
+        #[arg(short, long, help = "names or urls of components you want to add")]
         components: Vec<String>,
     },
 }
 
-fn main() -> Result<(), MainError> {
+async fn run() -> Result<(), MainError> {
     let logger =
         env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).build();
     let level = logger.filter();
@@ -93,8 +101,22 @@ fn main() -> Result<(), MainError> {
                 },
             )?;
         }
-        Commands::Add { components } => println!("Adding components {:?}", components),
+        Commands::Add { cwd, components } => {
+            add_command(AddSchema {
+                cwd: cwd.clone(),
+                components: components.clone(),
+            })
+            .await?
+        }
     }
 
     Ok(())
+}
+
+#[tokio::main(flavor = "current_thread")]
+async fn main() {
+    if let Err(e) = run().await {
+        error!("{}", e);
+        std::process::exit(1);
+    }
 }

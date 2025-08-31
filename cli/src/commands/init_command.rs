@@ -1,6 +1,5 @@
 use crate::config::{Config, ConfigError};
 use crate::preflights::init::{PreflightInitErrors, preflight_init};
-use crate::schemas::InitSchema;
 use crate::{
     NPM, inc_step,
     util::step::{LOOKING_GLASS, PAPER, SPARKLE, Step, TRUCK, step},
@@ -8,14 +7,13 @@ use crate::{
 use console::style;
 use dialoguer::Confirm;
 use indicatif::{MultiProgress, style::TemplateError};
-use log::{error, info};
+use log::error;
+use serde::{Deserialize, Serialize};
 use std::env::current_dir;
 use std::fs::File;
 use std::io::BufWriter;
-use std::{
-    fs::{self},
-    process::{Command, Stdio},
-};
+use std::path::PathBuf;
+use std::process::{Command, Stdio};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -43,11 +41,20 @@ pub enum InitError {
 
 static PACKAGES: [&str; 1] = ["@rbxts/react"];
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct InitSchema {
+    pub cwd: PathBuf,
+    pub yes: bool,
+    pub force: bool,
+    pub skip_preflight: bool,
+}
+
 pub fn init_command(mp: &MultiProgress, options: InitSchema) -> Result<(), InitError> {
     let mut init_pb = Step::new(mp, 5, 5)?;
 
     if !options.skip_preflight {
-        inc_step!(init_pb, TRUCK, "Starting preflight checks.");
+        step!(init_pb, TRUCK, "Starting preflight checks.");
+        init_pb.pause();
         preflight_init(options.clone())?;
 
         if !&options.yes {
@@ -63,6 +70,8 @@ pub fn init_command(mp: &MultiProgress, options: InitSchema) -> Result<(), InitE
                 std::process::exit(0);
             }
         }
+
+        init_pb.unpause();
     }
 
     step!(

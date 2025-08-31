@@ -1,0 +1,132 @@
+use crate::config::Config;
+use crate::preflights::add::{PreflightAdd, preflight_add};
+use crate::{HTTPCLIENT, config};
+use reqwest::RequestBuilder;
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum AddError {
+    #[error("Passed in components were empty")]
+    ComponentsEmpty,
+    #[error(transparent)]
+    ConfigError(#[from] config::ConfigError),
+    #[error(transparent)]
+    PreflightAdd(#[from] PreflightAdd),
+    #[error(transparent)]
+    RegistryError(#[from] RegistryError),
+}
+
+#[derive(Debug, Error)]
+pub enum RegistryError {
+    #[error(transparent)]
+    HttpError(#[from] reqwest::Error),
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RegistryItem {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub item_type: RegistryType,
+    pub description: String,
+    pub title: String,
+    pub author: String,
+    pub dependencies: Vec<String>,
+    pub dev_dependencies: Vec<String>,
+    pub registry_dependencies: Vec<String>,
+    pub files: Vec<RegistryItemFile>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RegistryItemFile {
+    pub path: String,
+    pub content: String,
+    #[serde(rename = "type")]
+    pub item_type: RegistryType,
+    pub target: String,
+    pub extends: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum RegistryType {
+    Block,
+    Component,
+    UI,
+    Style,
+}
+
+impl RegistryType {
+    pub fn to_string(&self) -> String {
+        match self {
+            RegistryType::Block => "registry:block".to_string(),
+            RegistryType::Component => "registry:component".to_string(),
+            RegistryType::UI => "registry:ui".to_string(),
+            RegistryType::Style => "registry:style".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AddSchema {
+    pub cwd: PathBuf,
+    pub components: Vec<String>,
+}
+
+pub async fn add_command(options: AddSchema) -> Result<(), AddError> {
+    if &options.components.len() == &0 {
+        return Err(AddError::ComponentsEmpty);
+    }
+
+    preflight_add(&options)?;
+
+    let config = Config::get_config()?;
+
+    add_components(&options.components, config, &options).await?;
+
+    Ok(())
+}
+
+async fn add_components(
+    components: &Vec<String>,
+    config: Config,
+    options: &AddSchema,
+) -> Result<(), AddError> {
+    for component in components {
+        let registry_item = resolve_registry_item(component).await?;
+
+        // We need to check if the component has any registry dependents, if so we need to add them as well
+
+        if registry_item.registry_dependencies.len() > 0 {
+            for dep in registry_item.registry_dependencies {
+                let registry_dep = resolve_registry_item(component).await?;
+
+                // We will then check if it already exists, if so skip otherwise we will add it
+            }
+        }
+
+        // Next we need to loop over the files in the registry item and add them accordingly
+
+        if registry_item.files.len() > 0 {
+            for file in registry_item.files {
+                // We also need to check the type of the file, if it's a component we add it into whatever they specified for their components path, if it's a ui we add it to the ui path
+            }
+        }
+    }
+    // Check registry for component
+    // Check if file already exists and whether to overwrite it or not, get confirmation
+    // If all checks pass write to file at directory specified.
+    Ok(())
+}
+
+// TODO: Move these functions to their own designated modules
+async fn resolve_registry_item(component: &String) -> Result<RegistryItem, RegistryError> {
+    // fetch the registry for the given component
+    // TODO: We need to handle the errors better to be able to better report to the user, as right now it will just be a generic error from reqwest.
+    let result = reqwest::get(format!("http://localhost:3000/r/{component}.json"))
+        .await?
+        .json::<RegistryItem>()
+        .await?;
+
+    Ok(result)
+}

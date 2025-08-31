@@ -41,8 +41,15 @@ impl Step {
             message.as_ref()
         );
 
-        self.pb.println(&message);
         self.pb.set_message(message);
+        self.pb.enable_steady_tick(Duration::from_millis(80));
+    }
+
+    pub fn pause(&self) {
+        self.pb.disable_steady_tick();
+    }
+
+    pub fn unpause(&self) {
         self.pb.enable_steady_tick(Duration::from_millis(80));
     }
 
