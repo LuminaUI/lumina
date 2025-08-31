@@ -1,5 +1,5 @@
+use indicatif::ProgressBar;
 use std::time::Duration;
-use indicatif::{ProgressBar, ProgressStyle};
 
 pub struct Spinner {
     pub text: String,

@@ -1,5 +1,4 @@
 use crate::commands::add_command::AddSchema;
-use console::StyledObject;
 use std::fs;
 use thiserror::Error;
 
@@ -20,7 +19,7 @@ pub fn preflight_add(options: &AddSchema) -> Result<(), PreflightAdd> {
         return Err(PreflightAdd::MissingCWD);
     }
 
-    if !fs::exists(&options.cwd.join("package.json"))? {
+    if !fs::exists(options.cwd.join("package.json"))? {
         return Err(PreflightAdd::PackageJsonNotFound);
     }
 

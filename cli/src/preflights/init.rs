@@ -35,13 +35,13 @@ pub fn preflight_init(options: InitSchema) -> Result<(), PreflightInitErrors> {
         return Err(PreflightInitErrors::MissingCWD);
     }
 
-    if !fs::exists(&options.cwd.join("package.json"))? {
+    if !fs::exists(options.cwd.join("package.json"))? {
         return Err(PreflightInitErrors::PackageJsonNotFound);
     }
 
     let project_spinner = Spinner::spinner("Preflight checks.");
 
-    if fs::exists(&options.cwd.join("components.json"))? {
+    if fs::exists(options.cwd.join("components.json"))? {
         project_spinner.abandon();
         let cwd_string = options.cwd.to_string_lossy().to_string();
         let err = Err(PreflightInitErrors::ComponentsJsonExists(

@@ -1,8 +1,7 @@
-use crate::config::Config;
+use crate::config;
 use crate::preflights::add::{PreflightAdd, preflight_add};
-use crate::{HTTPCLIENT, config};
-use reqwest::RequestBuilder;
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use thiserror::Error;
 
@@ -56,13 +55,13 @@ pub enum RegistryType {
     Style,
 }
 
-impl RegistryType {
-    pub fn to_string(&self) -> String {
+impl Display for RegistryType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            RegistryType::Block => "registry:block".to_string(),
-            RegistryType::Component => "registry:component".to_string(),
-            RegistryType::UI => "registry:ui".to_string(),
-            RegistryType::Style => "registry:style".to_string(),
+            RegistryType::Block => write!(f, "registry:block"),
+            RegistryType::Component => write!(f, "registry:component"),
+            RegistryType::UI => write!(f, "registry:ui"),
+            RegistryType::Style => write!(f, "registry:style"),
         }
     }
 }
@@ -74,13 +73,13 @@ pub struct AddSchema {
 }
 
 pub async fn add_command(options: AddSchema) -> Result<(), AddError> {
-    if &options.components.len() == &0 {
+    if options.components.is_empty() {
         return Err(AddError::ComponentsEmpty);
     }
 
     preflight_add(&options)?;
 
-    let config = Config::get_config()?;
+    let config = config::Config::get_config()?;
 
     add_components(&options.components, config, &options).await?;
 
@@ -89,17 +88,17 @@ pub async fn add_command(options: AddSchema) -> Result<(), AddError> {
 
 async fn add_components(
     components: &Vec<String>,
-    config: Config,
-    options: &AddSchema,
+    _config: config::Config,
+    _options: &AddSchema,
 ) -> Result<(), AddError> {
     for component in components {
         let registry_item = resolve_registry_item(component).await?;
 
         // We need to check if the component has any registry dependents, if so we need to add them as well
 
-        if registry_item.registry_dependencies.len() > 0 {
-            for dep in registry_item.registry_dependencies {
-                let registry_dep = resolve_registry_item(component).await?;
+        if !registry_item.registry_dependencies.is_empty() {
+            for _dep in registry_item.registry_dependencies {
+                let _registry_dep = resolve_registry_item(component).await?;
 
                 // We will then check if it already exists, if so skip otherwise we will add it
             }
@@ -107,8 +106,8 @@ async fn add_components(
 
         // Next we need to loop over the files in the registry item and add them accordingly
 
-        if registry_item.files.len() > 0 {
-            for file in registry_item.files {
+        if !registry_item.files.is_empty() {
+            for _file in registry_item.files {
                 // We also need to check the type of the file, if it's a component we add it into whatever they specified for their components path, if it's a ui we add it to the ui path
             }
         }

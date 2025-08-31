@@ -47,7 +47,7 @@ struct Cli {
     command: Commands,
 }
 
-pub static HTTPCLIENT: LazyLock<Client> = LazyLock::new(|| Client::new());
+pub static HTTPCLIENT: LazyLock<Client> = LazyLock::new(Client::new);
 
 #[derive(Subcommand)]
 enum Commands {

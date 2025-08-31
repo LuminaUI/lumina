@@ -1,7 +1,7 @@
 use crate::util::get_package_info::get_package_info;
 use std::env;
 use std::env::current_dir;
-use std::path::PathBuf;
+use std::path::Path;
 
 pub enum PackageRunners {
     PnpmDlx,
@@ -36,7 +36,7 @@ impl PackageRunners {
 }
 
 // TODO: Eventually detect from lock file & possibly PATH later on.
-pub fn get_package_manager(cwd: &PathBuf) -> Option<PackageManager> {
+pub fn get_package_manager(cwd: &Path) -> Option<PackageManager> {
     if let Some(pm) = detect_from_user_agent() {
         return Some(pm);
     }
@@ -47,7 +47,7 @@ pub fn get_package_manager(cwd: &PathBuf) -> Option<PackageManager> {
     None
 }
 
-pub fn get_package_runner(cwd: &PathBuf) -> Option<PackageRunners> {
+pub fn get_package_runner(cwd: &Path) -> Option<PackageRunners> {
     let package_manager = get_package_manager(cwd)?;
 
     match package_manager.kind {
@@ -94,7 +94,7 @@ fn detect_from_package_json() -> Option<PackageManager> {
     let (name, version) = package_manager
         .split_once('@')
         .map(|(n, v)| (n, Some(v.to_string())))
-        .unwrap_or_else(|| (&package_manager.as_str(), None));
+        .unwrap_or_else(|| (package_manager.as_str(), None));
 
     match name {
         "npm" => Some(PackageManager {

@@ -2,7 +2,7 @@ use log::error;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, thiserror::Error)]
 pub enum TsAliasError {
@@ -30,7 +30,7 @@ pub struct ProjectInfo {
     pub alias_prefix: Option<String>,
 }
 
-pub fn get_project_info(cwd: &PathBuf) -> Option<ProjectInfo> {
+pub fn get_project_info(cwd: &Path) -> Option<ProjectInfo> {
     let is_src_dir = fs::exists(cwd.join("src")).ok()?;
     let is_tsx = is_typescript_project(cwd)?;
 
@@ -41,11 +41,11 @@ pub fn get_project_info(cwd: &PathBuf) -> Option<ProjectInfo> {
     })
 }
 
-pub fn is_typescript_project(cwd: &PathBuf) -> Option<bool> {
+pub fn is_typescript_project(cwd: &Path) -> Option<bool> {
     fs::exists(cwd.join("tsconfig.json")).ok()
 }
 
-pub fn get_ts_config_alias_prefix(cwd: &PathBuf) -> Result<Option<String>, TsAliasError> {
+pub fn get_ts_config_alias_prefix(cwd: &Path) -> Result<Option<String>, TsAliasError> {
     let tsconfig_path = cwd.join("tsconfig.json");
     let raw = fs::read(&tsconfig_path).map_err(|e| TsAliasError::Io(tsconfig_path.clone(), e))?;
     let cfg: TsConfig =
