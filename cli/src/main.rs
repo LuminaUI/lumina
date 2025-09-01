@@ -1,15 +1,14 @@
-use crate::commands::add_command::{AddSchema, add_command};
-use crate::commands::init_command::{InitSchema, init_command};
+use crate::commands::{
+    add_command::{AddSchema, add_command},
+    init_command::{InitSchema, init_command},
+};
 use cfg_if::cfg_if;
-use clap::ArgAction;
-use clap::ValueHint;
-use clap::{Parser, Subcommand};
+use clap::{ArgAction, Parser, Subcommand, ValueHint};
 use indicatif::MultiProgress;
 use indicatif_log_bridge::LogWrapper;
 use log::error;
 use reqwest::Client;
-use std::path::PathBuf;
-use std::sync::LazyLock;
+use std::{path::PathBuf, sync::LazyLock};
 use thiserror::Error;
 
 mod commands;

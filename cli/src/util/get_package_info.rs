@@ -1,9 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::BTreeMap;
-use std::fs::File;
-use std::io::Read;
-use std::path::Path;
+use std::{collections::BTreeMap, fs::File, io::BufReader, path::Path};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -137,10 +134,7 @@ pub struct FundingSingle {
 pub fn get_package_info(cwd: &Path) -> Option<PackageJson> {
     let package_json_path = cwd.join("package.json");
 
-    File::open(&package_json_path).ok().map(|mut f| {
-        let mut contents = String::new();
-        f.read_to_string(&mut contents).expect("Reading package.json");
-
-        serde_json::from_str::<PackageJson>(&contents).unwrap()
-    })
+    File::open(&package_json_path)
+        .ok()
+        .map(|f| serde_json::from_reader::<_, PackageJson>(BufReader::new(f)).unwrap())
 }

@@ -1,8 +1,12 @@
-use crate::config;
-use crate::preflights::add::{PreflightAdd, preflight_add};
+use crate::{
+    config,
+    preflights::add::{PreflightAdd, preflight_add},
+};
 use serde::{Deserialize, Serialize};
-use std::fmt::{Display, Formatter};
-use std::path::PathBuf;
+use std::{
+    fmt::{Display, Formatter},
+    path::PathBuf,
+};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -58,10 +62,10 @@ pub enum RegistryType {
 impl Display for RegistryType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            RegistryType::Block => write!(f, "registry:block"),
-            RegistryType::Component => write!(f, "registry:component"),
-            RegistryType::UI => write!(f, "registry:ui"),
-            RegistryType::Style => write!(f, "registry:style"),
+            Self::Block => write!(f, "registry:block"),
+            Self::Component => write!(f, "registry:component"),
+            Self::UI => write!(f, "registry:ui"),
+            Self::Style => write!(f, "registry:style"),
         }
     }
 }

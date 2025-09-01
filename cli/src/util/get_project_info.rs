@@ -1,8 +1,10 @@
 use log::error;
 use serde::Deserialize;
-use std::collections::HashMap;
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum TsAliasError {
@@ -58,24 +60,13 @@ pub fn get_ts_config_alias_prefix(cwd: &Path) -> Result<Option<String>, TsAliasE
         return Ok(None);
     };
 
-    if paths_map.is_empty() {
-        return Ok(None);
-    };
-
     const CANDIDATES: &[&str] = &["./*", "./src/*"];
 
-    for (alias, targets) in &paths_map {
-        let hits_candidate = targets.iter().any(|t| CANDIDATES.iter().any(|c| t == c));
-        if hits_candidate {
-            return Ok(Some(trim_alias_suffix(alias.as_str())));
-        }
-    }
-
-    if let Some(first_key) = paths_map.keys().next() {
-        return Ok(Some(trim_alias_suffix(first_key.as_str())));
-    }
-
-    Ok(None)
+    Ok(paths_map
+        .iter()
+        .find(|(_, targets)| targets.iter().any(|t| CANDIDATES.iter().any(|c| t == c)))
+        .map(|(alias, _)| trim_alias_suffix(alias.as_str()))
+        .or_else(|| paths_map.keys().next().map(|first_key| trim_alias_suffix(first_key.as_str()))))
 }
 
 fn trim_alias_suffix(alias: &str) -> String {
