@@ -1,7 +1,8 @@
 use crate::util::get_package_info::get_package_info;
-use std::env;
-use std::env::current_dir;
-use std::path::Path;
+use std::{
+    env::{self, current_dir},
+    path::Path,
+};
 
 pub enum PackageRunners {
     PnpmDlx,
@@ -27,35 +28,26 @@ pub struct PackageManager {
 impl PackageRunners {
     pub fn as_str(&self) -> &'static str {
         match self {
-            PackageRunners::PnpmDlx => "pnpm dlx",
-            PackageRunners::Bunx => "bunx",
-            PackageRunners::Npx => "npx",
-            PackageRunners::YarnDlx => "yarn dlx",
+            Self::PnpmDlx => "pnpm dlx",
+            Self::Bunx => "bunx",
+            Self::Npx => "npx",
+            Self::YarnDlx => "yarn dlx",
         }
     }
 }
 
 // TODO: Eventually detect from lock file & possibly PATH later on.
 pub fn get_package_manager(cwd: &Path) -> Option<PackageManager> {
-    if let Some(pm) = detect_from_user_agent() {
-        return Some(pm);
-    }
-    if let Some(pm) = detect_from_package_json() {
-        return Some(pm);
-    }
-
-    None
+    detect_from_user_agent().or_else(detect_from_package_json)
 }
 
 pub fn get_package_runner(cwd: &Path) -> Option<PackageRunners> {
-    let package_manager = get_package_manager(cwd)?;
-
-    match package_manager.kind {
-        PackageManagerKind::Npm => Some(PackageRunners::Npx),
-        PackageManagerKind::Yarn => Some(PackageRunners::YarnDlx),
-        PackageManagerKind::Pnpm => Some(PackageRunners::PnpmDlx),
-        PackageManagerKind::Bun => Some(PackageRunners::Bunx),
-    }
+    get_package_manager(cwd).map(|package_manager| match package_manager.kind {
+        PackageManagerKind::Npm => PackageRunners::Npx,
+        PackageManagerKind::Yarn => PackageRunners::YarnDlx,
+        PackageManagerKind::Pnpm => PackageRunners::PnpmDlx,
+        PackageManagerKind::Bun => PackageRunners::Bunx,
+    })
 }
 
 fn detect_from_user_agent() -> Option<PackageManager> {

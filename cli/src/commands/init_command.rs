@@ -1,7 +1,8 @@
-use crate::config::{Config, ConfigError};
-use crate::preflights::init::{PreflightInitErrors, preflight_init};
 use crate::{
-    NPM, inc_step,
+    NPM,
+    config::{Config, ConfigError},
+    inc_step,
+    preflights::init::{PreflightInitErrors, preflight_init},
     util::step::{LOOKING_GLASS, PAPER, SPARKLE, Step, TRUCK, step},
 };
 use console::style;
@@ -9,11 +10,13 @@ use dialoguer::Confirm;
 use indicatif::{MultiProgress, style::TemplateError};
 use log::error;
 use serde::{Deserialize, Serialize};
-use std::env::current_dir;
-use std::fs::File;
-use std::io::BufWriter;
-use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::{
+    env::current_dir,
+    fs::File,
+    io::BufWriter,
+    path::PathBuf,
+    process::{Command, Stdio},
+};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -97,7 +100,7 @@ fn generate_components_json(options: &InitSchema) -> Result<(), InitError> {
 
     let file = File::create(options.cwd.join("components.json"))?;
     let writer = BufWriter::new(file);
-    serde_json::to_writer_pretty(writer, &Config::new())?;
+    serde_json::to_writer_pretty(writer, &Config::default())?;
 
     Ok(())
 }

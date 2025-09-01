@@ -1,10 +1,10 @@
-use crate::commands::init_command::InitSchema;
-use crate::util::get_project_info::get_project_info;
-use crate::util::spinner::Spinner;
+use crate::{
+    commands::init_command::InitSchema,
+    util::{get_project_info::get_project_info, spinner::Spinner},
+};
 use console::{StyledObject, style};
 use log::error;
-use std::fmt::Debug;
-use std::fs;
+use std::{fmt::Debug, fs};
 use thiserror::Error;
 
 #[derive(Error, Debug)]

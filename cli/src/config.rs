@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::env::current_dir;
-use std::fs::File;
-use std::io::Read;
+use std::{env::current_dir, fs::File, io::BufReader};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -30,6 +28,19 @@ pub struct Aliases {
     lib: Option<String>,
 }
 
+impl Default for Aliases {
+    #[inline(always)]
+    fn default() -> Self {
+        Self {
+            components: Some(String::from("@components/")),
+            ui: Some(String::from("@components/ui")),
+            utils: None,
+            hooks: None,
+            lib: None,
+        }
+    }
+}
+
 // Plans for new themes later on.
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Themes {
@@ -37,43 +48,35 @@ pub enum Themes {
 }
 
 impl Themes {
-    pub fn as_str(&self) -> &'static str {
+    pub const fn as_str(&self) -> &'static str {
         match self {
-            Themes::Default => "default",
+            Self::Default => "default",
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+impl Default for Themes {
+    #[inline(always)]
+    fn default() -> Self {
+        Self::Default
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Config {
     pub theme: Themes,
     pub aliases: Aliases,
 }
 
 impl Config {
-    pub fn new() -> Config {
-        Self {
-            theme: Themes::Default,
-            aliases: Aliases {
-                components: Some(String::from("@components/")),
-                ui: Some(String::from("@components/ui")),
-                utils: None,
-                lib: None,
-                hooks: None,
-            },
-        }
-    }
-
     pub fn get_config() -> Result<Config, ConfigError> {
         let current_directory = current_dir().map_err(|_| ConfigError::NoCurrentDir)?;
         let config_path = current_directory.join("components.json");
 
-        let mut f = File::open(config_path).map_err(|_| {
-            ConfigError::NoComponentsJson(current_directory.to_string_lossy().to_string())
-        })?;
-        let mut contents = String::new();
-        f.read_to_string(&mut contents).map_err(|_| ConfigError::EmptyComponentsJson)?;
-
-        Ok(serde_json::from_str::<Config>(&contents)?)
+        Ok(serde_json::from_reader::<_, Config>(BufReader::new(
+            File::open(config_path).map_err(|_| {
+                ConfigError::NoComponentsJson(current_directory.to_string_lossy().to_string())
+            })?,
+        ))?)
     }
 }
