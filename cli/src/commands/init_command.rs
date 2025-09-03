@@ -1,3 +1,5 @@
+use crate::preflights::init::ERRORS;
+use crate::util::get_project_info::{TsAliasError, write_paths};
 use crate::{
     NPM,
     config::{Config, ConfigError},
@@ -40,6 +42,9 @@ pub enum InitError {
 
     #[error(transparent)]
     ConfigError(#[from] ConfigError),
+
+    #[error(transparent)]
+    TsAliasError(#[from] TsAliasError),
 }
 
 static PACKAGES: [&str; 1] = ["@rbxts/react"];
@@ -53,12 +58,35 @@ pub struct InitSchema {
 }
 
 pub fn init_command(mp: &MultiProgress, options: InitSchema) -> Result<(), InitError> {
-    let mut init_pb = Step::new(mp, 5, 5)?;
+    let mut init_pb = Step::new(mp, 6, 6)?;
 
     if !options.skip_preflight {
         step!(init_pb, TRUCK, "Starting preflight checks.");
         init_pb.pause();
-        preflight_init(options.clone())?;
+        let errors = preflight_init(options.clone())?;
+
+        if let Some(err) = errors.get(&ERRORS::ImportAliasesMissing) {
+            if *err {
+                let confirmation = Confirm::new()
+                    .with_prompt(format!(
+                        "Writing the required import aliases to {}. Proceed?",
+                        style("tsconfig.json").bold().cyan()
+                    ))
+                    .interact()
+                    .unwrap();
+
+                if !confirmation {
+                    error!("Aborting initialization.");
+                    init_pb.abandon();
+                    std::process::exit(0);
+                }
+
+                // We will write to the tsconfig.json paths property with the @/component & @/ui paths
+
+                step!(init_pb, PAPER, "Writing paths to tsconfig.json");
+                write_paths(&options.cwd)?
+            }
+        }
 
         if !&options.yes {
             let confirmation = Confirm::new()
@@ -70,6 +98,8 @@ pub fn init_command(mp: &MultiProgress, options: InitSchema) -> Result<(), InitE
                 .unwrap();
 
             if !confirmation {
+                error!("Aborting initialization.");
+                init_pb.abandon();
                 std::process::exit(0);
             }
         }

@@ -4,6 +4,7 @@ use crate::{
 };
 use console::{StyledObject, style};
 use log::error;
+use std::collections::HashMap;
 use std::{fmt::Debug, fs};
 use thiserror::Error;
 
@@ -30,7 +31,13 @@ pub enum PreflightInitErrors {
     ),
 }
 
-pub fn preflight_init(options: InitSchema) -> Result<(), PreflightInitErrors> {
+#[derive(Eq, Hash, PartialEq)]
+pub enum ERRORS {
+    ImportAliasesMissing,
+}
+
+pub fn preflight_init(options: InitSchema) -> Result<HashMap<ERRORS, bool>, PreflightInitErrors> {
+    let mut errors: HashMap<ERRORS, bool> = HashMap::new();
     if !fs::exists(&options.cwd)? {
         return Err(PreflightInitErrors::MissingCWD);
     }
@@ -67,14 +74,13 @@ pub fn preflight_init(options: InitSchema) -> Result<(), PreflightInitErrors> {
 
     let ts_config_spinner = Spinner::spinner("Validating import alias.");
 
-    if project_info.unwrap().alias_prefix.is_none() {
+    if project_info.unwrap().aliases_paths.is_empty() {
         ts_config_spinner.abandon_with_message("Import Alias Missing");
-        return Err(PreflightInitErrors::NoImportAliasFound(
-            style("\"@/*\": [\"./src/shared/*\"]").bold().cyan().to_string(),
-        ));
+        errors.insert(ERRORS::ImportAliasesMissing, true);
+        return Ok(errors);
     }
 
     ts_config_spinner.finish();
 
-    Ok(())
+    Ok(errors)
 }
