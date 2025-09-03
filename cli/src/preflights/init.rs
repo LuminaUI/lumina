@@ -1,7 +1,4 @@
-use crate::{
-    commands::init_command::InitSchema,
-    util::{get_project_info::get_project_info, spinner::Spinner},
-};
+use crate::{commands::init_command::InitSchema, util::get_project_info::get_project_info};
 use console::{StyledObject, style};
 use log::error;
 use std::collections::HashMap;
@@ -46,10 +43,7 @@ pub fn preflight_init(options: InitSchema) -> Result<HashMap<ERRORS, bool>, Pref
         return Err(PreflightInitErrors::PackageJsonNotFound);
     }
 
-    let project_spinner = Spinner::spinner("Preflight checks.");
-
     if fs::exists(options.cwd.join("components.json"))? {
-        project_spinner.abandon();
         let cwd_string = options.cwd.to_string_lossy().to_string();
         let err = Err(PreflightInitErrors::ComponentsJsonExists(
             style("components.json").bold().cyan(),
@@ -59,8 +53,6 @@ pub fn preflight_init(options: InitSchema) -> Result<HashMap<ERRORS, bool>, Pref
         ));
         return err;
     }
-
-    project_spinner.finish();
 
     let project_info = get_project_info(&options.cwd);
 
@@ -72,15 +64,10 @@ pub fn preflight_init(options: InitSchema) -> Result<HashMap<ERRORS, bool>, Pref
         std::process::exit(1);
     }
 
-    let ts_config_spinner = Spinner::spinner("Validating import alias.");
-
     if project_info.unwrap().aliases_paths.is_empty() {
-        ts_config_spinner.abandon_with_message("Import Alias Missing");
         errors.insert(ERRORS::ImportAliasesMissing, true);
         return Ok(errors);
     }
-
-    ts_config_spinner.finish();
 
     Ok(errors)
 }

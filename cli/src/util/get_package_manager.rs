@@ -37,12 +37,12 @@ impl PackageRunners {
 }
 
 // TODO: Eventually detect from lock file & possibly PATH later on.
-pub fn get_package_manager(cwd: &Path) -> Option<PackageManager> {
+pub fn get_package_manager() -> Option<PackageManager> {
     detect_from_user_agent().or_else(detect_from_package_json)
 }
 
-pub fn get_package_runner(cwd: &Path) -> Option<PackageRunners> {
-    get_package_manager(cwd).map(|package_manager| match package_manager.kind {
+pub fn get_package_runner() -> Option<PackageRunners> {
+    get_package_manager().map(|package_manager| match package_manager.kind {
         PackageManagerKind::Npm => PackageRunners::Npx,
         PackageManagerKind::Yarn => PackageRunners::YarnDlx,
         PackageManagerKind::Pnpm => PackageRunners::PnpmDlx,

@@ -164,7 +164,7 @@ async fn add_components(
 async fn resolve_registry_item(component: &String) -> Result<RegistryItem, RegistryError> {
     // fetch the registry for the given component
     // TODO: We need to handle the errors better to be able to better report to the user, as right now it will just be a generic error from reqwest.
-    let result = reqwest::get(format!("http://localhost:3000/r/{component}.json"))
+    let result = reqwest::get(format!("https://lumina-ui.com/r/{component}.json"))
         .await?
         .json::<RegistryItem>()
         .await?;
