@@ -14,6 +14,7 @@ use log::error;
 use serde::{Deserialize, Serialize};
 use std::{
     env::current_dir,
+    fs,
     fs::File,
     io::BufWriter,
     path::PathBuf,
@@ -58,7 +59,7 @@ pub struct InitSchema {
 }
 
 pub fn init_command(mp: &MultiProgress, options: InitSchema) -> Result<(), InitError> {
-    let mut init_pb = Step::new(mp, 5, 5)?;
+    let mut init_pb = Step::new(mp, 6, 6)?;
 
     if !options.skip_preflight {
         step!(init_pb, TRUCK, "Starting preflight checks.");
@@ -116,6 +117,12 @@ pub fn init_command(mp: &MultiProgress, options: InitSchema) -> Result<(), InitE
     inc_step!(
         init_pb,
         LOOKING_GLASS,
+        "Creating default directories...",
+        create_default_directories(&options)?
+    );
+    inc_step!(
+        init_pb,
+        LOOKING_GLASS,
         "Checking for dependencies...",
         check_for_required_deps(&mut init_pb)?
     );
@@ -123,6 +130,12 @@ pub fn init_command(mp: &MultiProgress, options: InitSchema) -> Result<(), InitE
     init_pb.inc();
     init_pb.finish_with(SPARKLE, "Finished initializing lumina!");
 
+    Ok(())
+}
+
+fn create_default_directories(options: &InitSchema) -> Result<(), InitError> {
+    fs::create_dir_all(&options.cwd.join("src").join("shared").join("components"))?;
+    fs::create_dir_all(&options.cwd.join("src").join("shared").join("components").join("ui"))?;
     Ok(())
 }
 

@@ -67,7 +67,11 @@ enum Commands {
     Add {
         #[arg(value_hint = ValueHint::DirPath, default_value = ".", short, long, help = "Directory you want to init into")]
         cwd: PathBuf,
-        #[arg(short, long, help = "names or urls of components you want to add")]
+        #[arg(
+            short = 'C',
+            long,
+            help = "names or urls of components you want to add"
+        )]
         components: Vec<String>,
     },
 }

@@ -1,3 +1,4 @@
+use crate::util::get_project_info::get_project_info;
 use crate::{
     config,
     preflights::add::{PreflightAdd, preflight_add},
@@ -5,6 +6,7 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::{Display, Formatter},
+    fs,
     path::PathBuf,
 };
 use thiserror::Error;
@@ -19,6 +21,8 @@ pub enum AddError {
     PreflightAdd(#[from] PreflightAdd),
     #[error(transparent)]
     RegistryError(#[from] RegistryError),
+    #[error(transparent)]
+    IoError(#[from] std::io::Error),
 }
 
 #[derive(Debug, Error)]
@@ -29,15 +33,17 @@ pub enum RegistryError {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RegistryItem {
+    #[serde(rename = "$schema")]
+    pub schema: String,
     pub name: String,
     #[serde(rename = "type")]
     pub item_type: RegistryType,
     pub description: String,
     pub title: String,
-    pub author: String,
-    pub dependencies: Vec<String>,
-    pub dev_dependencies: Vec<String>,
-    pub registry_dependencies: Vec<String>,
+    pub author: Option<String>,
+    pub dependencies: Option<Vec<String>>,
+    pub dev_dependencies: Option<Vec<String>>,
+    pub registry_dependencies: Option<Vec<String>>,
     pub files: Vec<RegistryItemFile>,
 }
 
@@ -47,15 +53,19 @@ pub struct RegistryItemFile {
     pub content: String,
     #[serde(rename = "type")]
     pub item_type: RegistryType,
-    pub target: String,
-    pub extends: String,
+    pub target: Option<String>,
+    pub extends: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum RegistryType {
+    #[serde(rename = "registry:block")]
     Block,
+    #[serde(rename = "registry:component")]
     Component,
+    #[serde(rename = "registry:ui")]
     UI,
+    #[serde(rename = "registry:style")]
     Style,
 }
 
@@ -85,37 +95,65 @@ pub async fn add_command(options: AddSchema) -> Result<(), AddError> {
 
     let config = config::Config::get_config()?;
 
-    add_components(&options.components, config, &options).await?;
+    add_components(&options.components, &config, &options).await?;
 
     Ok(())
 }
 
 async fn add_components(
     components: &Vec<String>,
-    _config: config::Config,
-    _options: &AddSchema,
+    config: &config::Config,
+    options: &AddSchema,
 ) -> Result<(), AddError> {
     for component in components {
         let registry_item = resolve_registry_item(component).await?;
 
-        // We need to check if the component has any registry dependents, if so we need to add them as well
-
-        if !registry_item.registry_dependencies.is_empty() {
-            for _dep in registry_item.registry_dependencies {
-                let _registry_dep = resolve_registry_item(component).await?;
-
-                // We will then check if it already exists, if so skip otherwise we will add it
-            }
-        }
+        // TODO: We need to check if the component has any registry dependents, if so we need to add them as well
 
         // Next we need to loop over the files in the registry item and add them accordingly
 
+        let aliases = &config.aliases;
+
         if !registry_item.files.is_empty() {
-            for _file in registry_item.files {
+            for file in registry_item.files {
                 // We also need to check the type of the file, if it's a component we add it into whatever they specified for their components path, if it's a ui we add it to the ui path
+
+                let project_info =
+                    get_project_info(&options.cwd).expect("Couldn't get project info");
+                let project_paths = match file.item_type {
+                    RegistryType::Component => project_info
+                        .aliases_paths
+                        .get(aliases.components.as_ref().unwrap().as_str()),
+                    RegistryType::UI => {
+                        project_info.aliases_paths.get(aliases.ui.as_ref().unwrap().as_str())
+                    }
+                    _ => None,
+                };
+
+                let paths = project_paths
+                    .map(|paths| {
+                        paths
+                            .iter()
+                            .map(|p| {
+                                let s = p.to_string_lossy();
+                                PathBuf::from(s.trim_end_matches("/*"))
+                            })
+                            .collect::<Vec<PathBuf>>()
+                    })
+                    .unwrap_or_default();
+
+                for path in paths {
+                    let component_path = path.join(&registry_item.name);
+                    fs::create_dir_all(&component_path)?;
+                    fs::write(
+                        &component_path.join(format!("{}.tsx", &registry_item.name)),
+                        &file.content,
+                    )?;
+                }
             }
         }
     }
+
     // Check registry for component
     // Check if file already exists and whether to overwrite it or not, get confirmation
     // If all checks pass write to file at directory specified.

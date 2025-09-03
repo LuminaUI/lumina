@@ -32,7 +32,7 @@ struct CompilerOptions {
 pub struct ProjectInfo {
     pub is_src_dir: bool,
     pub is_tsx: bool,
-    pub aliases_paths: Vec<String>,
+    pub aliases_paths: HashMap<String, Vec<PathBuf>>,
 }
 
 pub fn get_project_info(cwd: &Path) -> Option<ProjectInfo> {
@@ -50,7 +50,7 @@ pub fn is_typescript_project(cwd: &Path) -> Option<bool> {
     fs::exists(cwd.join("tsconfig.json")).ok()
 }
 
-pub fn get_aliases_paths(cwd: &Path) -> Result<Vec<String>, TsAliasError> {
+pub fn get_aliases_paths(cwd: &Path) -> Result<HashMap<String, Vec<PathBuf>>, TsAliasError> {
     let tsconfig_path = cwd.join("tsconfig.json");
     let mut raw = fs::read_to_string(&tsconfig_path)
         .map_err(|e| TsAliasError::Io(tsconfig_path.clone(), e))?;
@@ -67,14 +67,24 @@ pub fn get_aliases_paths(cwd: &Path) -> Result<Vec<String>, TsAliasError> {
         .and_then(|co| co.paths)
         .map(|paths| {
             paths
-                .into_iter() // (alias, Vec<String>)
-                .filter(|(alias, _)| allowed_prefixes.iter().any(|p| alias.starts_with(p)))
-                .flat_map(|(_, vals)| vals.into_iter())
-                .collect::<Vec<String>>()
+                .into_iter()
+                .filter(|(alias, _)| {
+                    allowed_prefixes.iter().any(|prefix| alias.starts_with(prefix))
+                })
+                .map(|(k, v)| {
+                    let new_value = v.into_iter().map(PathBuf::from).collect::<Vec<_>>();
+                    let new_key = trim_suffix(k.as_str());
+                    (new_key, new_value)
+                })
+                .collect()
         })
         .unwrap_or_default();
 
     Ok(aliases)
+}
+
+pub fn trim_suffix(alias: &str) -> String {
+    alias.strip_suffix("/*").unwrap_or(alias).to_string()
 }
 
 pub fn write_paths(cwd: &Path) -> Result<(), TsAliasError> {

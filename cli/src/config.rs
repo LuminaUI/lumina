@@ -17,23 +17,23 @@ pub enum ConfigError {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Aliases {
     #[serde(skip_serializing_if = "Option::is_none")]
-    components: Option<String>,
+    pub components: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    ui: Option<String>,
+    pub ui: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    utils: Option<String>,
+    pub utils: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    hooks: Option<String>,
+    pub hooks: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    lib: Option<String>,
+    pub lib: Option<String>,
 }
 
 impl Default for Aliases {
     #[inline(always)]
     fn default() -> Self {
         Self {
-            components: Some(String::from("@components/")),
-            ui: Some(String::from("@components/ui")),
+            components: Some(String::from("@/components")),
+            ui: Some(String::from("@/components/ui")),
             utils: None,
             hooks: None,
             lib: None,
