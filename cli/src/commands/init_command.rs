@@ -58,35 +58,11 @@ pub struct InitSchema {
 }
 
 pub fn init_command(mp: &MultiProgress, options: InitSchema) -> Result<(), InitError> {
-    let mut init_pb = Step::new(mp, 6, 6)?;
+    let mut init_pb = Step::new(mp, 5, 5)?;
 
     if !options.skip_preflight {
         step!(init_pb, TRUCK, "Starting preflight checks.");
-        init_pb.pause();
         let errors = preflight_init(options.clone())?;
-
-        if let Some(err) = errors.get(&ERRORS::ImportAliasesMissing) {
-            if *err {
-                let confirmation = Confirm::new()
-                    .with_prompt(format!(
-                        "Writing the required import aliases to {}. Proceed?",
-                        style("tsconfig.json").bold().cyan()
-                    ))
-                    .interact()
-                    .unwrap();
-
-                if !confirmation {
-                    error!("Aborting initialization.");
-                    init_pb.abandon();
-                    std::process::exit(0);
-                }
-
-                // We will write to the tsconfig.json paths property with the @/component & @/ui paths
-
-                step!(init_pb, PAPER, "Writing paths to tsconfig.json");
-                write_paths(&options.cwd)?
-            }
-        }
 
         if !&options.yes {
             let confirmation = Confirm::new()
@@ -102,24 +78,50 @@ pub fn init_command(mp: &MultiProgress, options: InitSchema) -> Result<(), InitE
                 init_pb.abandon();
                 std::process::exit(0);
             }
-        }
 
-        init_pb.unpause();
+            if let Some(err) = errors.get(&ERRORS::ImportAliasesMissing) {
+                if *err {
+                    let confirmation = Confirm::new()
+                        .with_prompt(format!(
+                            "Writing the required import aliases to {}. Proceed?",
+                            style("tsconfig.json").bold().cyan()
+                        ))
+                        .interact()
+                        .unwrap();
+
+                    if !confirmation {
+                        error!("Aborting initialization.");
+                        init_pb.abandon();
+                        std::process::exit(0);
+                    }
+                }
+            }
+
+            inc_step!(
+                init_pb,
+                PAPER,
+                "Writing components.json",
+                generate_components_json(&options)?
+            );
+
+            inc_step!(
+                init_pb,
+                PAPER,
+                "Writing paths to tsconfig.json",
+                write_paths(&options.cwd)?
+            );
+        }
     }
 
-    step!(
-        init_pb,
-        PAPER,
-        "Writing components.json",
-        generate_components_json(&options)?
-    );
     inc_step!(
         init_pb,
         LOOKING_GLASS,
         "Checking for dependencies...",
         check_for_required_deps(&mut init_pb)?
     );
-    inc_step!(init_pb, SPARKLE, "Finished initializing lumina!");
+
+    init_pb.inc();
+    init_pb.finish_with(SPARKLE, "Finished initializing lumina!");
 
     Ok(())
 }
@@ -138,8 +140,6 @@ fn generate_components_json(options: &InitSchema) -> Result<(), InitError> {
 fn check_for_required_deps(pb: &mut Step) -> Result<(), InitError> {
     let mut installed = true;
 
-    pb.inc();
-
     for pkg in PACKAGES {
         let exit_status = Command::new(NPM)
             .args(["ls", pkg, "--depth=0"])
@@ -148,18 +148,14 @@ fn check_for_required_deps(pb: &mut Step) -> Result<(), InitError> {
             .status()?;
 
         if !exit_status.success() {
-            step!(
-                pb,
-                TRUCK,
-                "Installing required dependencies",
-                install_dependencies(pkg, pb)?
-            );
+            pb.step_before_no_tick(TRUCK, "Installing required dependencies");
+            install_dependencies(pkg, pb)?;
             installed = false;
         }
     }
 
     if installed {
-        step!(pb, PAPER, "Dependencies already installed...");
+        pb.step_before_no_tick(PAPER, "Dependencies already installed...");
     }
 
     Ok(())

@@ -43,19 +43,39 @@ impl Step {
 
         self.pb.set_message(message);
         self.pb.enable_steady_tick(Duration::from_millis(80));
+        self.pb.tick();
     }
 
-    pub fn pause(&self) {
-        self.pb.disable_steady_tick();
-    }
+    pub fn step_before_no_tick<M>(&self, emoji: Emoji, message: M)
+    where
+        M: AsRef<str>,
+    {
+        let message = format!(
+            "{} {emoji} {}",
+            style(format!("{}/{}", self.step, self.steps)).bold().dim(),
+            message.as_ref()
+        );
 
-    pub fn unpause(&self) {
-        self.pb.enable_steady_tick(Duration::from_millis(80));
+        self.pb.set_message(message);
+        self.pb.tick();
     }
 
     pub fn step_after(&self) {
         self.pb.disable_steady_tick();
         self.pb.inc(1);
+    }
+
+    pub fn finish_with<M>(&self, emoji: Emoji, message: M)
+    where
+        M: AsRef<str>,
+    {
+        let message = format!(
+            "{} {emoji} {}",
+            style(format!("{}/{}", self.step, self.steps)).bold().dim(),
+            message.as_ref()
+        );
+
+        self.pb.finish_with_message(message);
     }
 
     #[inline(always)]
@@ -67,7 +87,7 @@ impl Step {
 #[macro_export]
 macro_rules! step {
     ($step:expr,$emoji:expr,$message:expr) => {
-        $step.step_before($emoji, $message);
+        $step.step_before_no_tick($emoji, $message);
         $step.step_after();
     };
 
@@ -84,7 +104,7 @@ pub use step;
 macro_rules! inc_step {
     ($step:expr,$emoji:expr,$message:expr) => {
         $step.inc();
-        $step.step_before($emoji, $message);
+        $step.step_before_no_tick($emoji, $message);
         $step.step_after();
     };
 
