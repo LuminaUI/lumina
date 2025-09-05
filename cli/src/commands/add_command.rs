@@ -1,12 +1,13 @@
+use crate::config::Config;
 use crate::schemas::registry_item::RegistryItem;
+use crate::schemas::registry_item_file::RegistryItemFile;
 use crate::schemas::registry_type::RegistryType;
-use crate::util::get_project_info::get_project_info;
 use crate::{
     config,
     preflights::add::{PreflightAdd, preflight_add},
 };
 use serde::{Deserialize, Serialize};
-use std::{fs, path::PathBuf};
+use std::{fs, path, path::PathBuf};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -23,6 +24,12 @@ pub enum AddError {
     IoError(#[from] std::io::Error),
     #[error("Content of component is empty")]
     ContentEmpty,
+    #[error("Component contains an invalid registry type")]
+    InvalidRegistryType,
+    #[error(
+        "Could not resolve the path for components, check your tsconfig paths and ensure the directories exist"
+    )]
+    CouldNotResolveTargetPath,
 }
 
 #[derive(Debug, Error)]
@@ -44,7 +51,7 @@ pub async fn add_command(options: AddSchema) -> Result<(), AddError> {
 
     preflight_add(&options)?;
 
-    let config = config::Config::get_config()?;
+    let config = Config::get_config()?;
 
     add_components(&options.components, &config, &options).await?;
 
@@ -53,7 +60,7 @@ pub async fn add_command(options: AddSchema) -> Result<(), AddError> {
 
 async fn add_components(
     components: &Vec<String>,
-    config: &config::Config,
+    config: &Config,
     options: &AddSchema,
 ) -> Result<(), AddError> {
     for component in components {
@@ -63,46 +70,79 @@ async fn add_components(
 
         // Next we need to loop over the files in the registry item and add them accordingly
 
-        let aliases = &config.aliases;
-
         if !registry_item.files.is_empty() {
             for file in registry_item.files {
-                // We also need to check the type of the file, if it's a component we add it into whatever they specified for their components path, if it's a ui we add it to the ui path
+                let target_dir = resolve_file_target_path(&file, &config);
 
-                let project_info =
-                    get_project_info(&options.cwd).expect("Couldn't get project info");
-                let project_paths = match file.item_type {
-                    RegistryType::Component => project_info
-                        .aliases_paths
-                        .get(aliases.components.as_ref().unwrap().as_str()),
-                    RegistryType::UI => {
-                        project_info.aliases_paths.get(aliases.ui.as_ref().unwrap().as_str())
-                    }
-                    _ => None,
+                if target_dir.is_none() {
+                    return Err(AddError::CouldNotResolveTargetPath);
+                }
+
+                let target_dir = target_dir.unwrap();
+
+                let component_path = target_dir.join(&registry_item.name);
+                fs::create_dir_all(&component_path)?;
+
+                let (name, ext) = match file.item_type {
+                    RegistryType::Component => ("index", "tsx"),
+                    RegistryType::UI => ("index", "tsx"),
+                    RegistryType::Style => (registry_item.name.as_str(), "rsml"),
+                    _ => ("index", "tsx"),
                 };
 
-                let paths = project_paths
-                    .map(|paths| {
-                        paths
-                            .iter()
-                            .map(|p| {
-                                let s = p.to_string_lossy();
-                                PathBuf::from(s.trim_end_matches("/*"))
-                            })
-                            .collect::<Vec<PathBuf>>()
-                    })
-                    .unwrap_or_default();
-
-                for path in paths {
-                    let component_path = path.join(&registry_item.name);
-                    fs::create_dir_all(&component_path)?;
-                    fs::write(
-                        &component_path.join(format!("{}.tsx", &registry_item.name)),
-                        &file.content.clone().ok_or(AddError::ContentEmpty)?,
-                    )?;
-                }
+                fs::write(
+                    &component_path.join(format!("{}.{}", name, ext)),
+                    &file.content.clone().ok_or(AddError::ContentEmpty)?,
+                )?;
             }
         }
+
+        // if !registry_item.files.is_empty() {
+        //     for file in registry_item.files {
+        //         // We also need to check the type of the file, if it's a component we add it into whatever they specified for their components path, if it's a ui we add it to the ui path
+        //
+        //         let project_info =
+        //             get_project_info(&options.cwd).expect("Couldn't get project info");
+        //
+        //         let project_paths = match file.item_type {
+        //             RegistryType::Component => project_info
+        //                 .aliases_paths
+        //                 .get(aliases.components.as_ref().unwrap().as_str()),
+        //             RegistryType::UI => {
+        //                 project_info.aliases_paths.get(aliases.ui.as_ref().unwrap().as_str())
+        //             }
+        //             _ => None,
+        //         };
+        //
+        //         let paths = project_paths
+        //             .map(|paths| {
+        //                 paths
+        //                     .iter()
+        //                     .map(|p| {
+        //                         let s = p.to_string_lossy();
+        //                         PathBuf::from(s.trim_end_matches("/*"))
+        //                     })
+        //                     .collect::<Vec<PathBuf>>()
+        //             })
+        //             .unwrap_or_default();
+        //
+        //         for path in paths {
+        //             let component_path = path.join(&registry_item.name);
+        //             fs::create_dir_all(&component_path)?;
+        //             fs::write(
+        //                 &component_path.join(format!("{}.tsx", &registry_item.name)),
+        //                 &file.content.clone().ok_or(AddError::ContentEmpty)?,
+        //             )?;
+        //
+        //             if file.item_type == RegistryType::Style {
+        //                 fs::write(
+        //                     &component_path.join(format!("{}.rsml", &registry_item.name)),
+        //                     &file.content.clone().ok_or(AddError::ContentEmpty)?,
+        //                 )?;
+        //             }
+        //         }
+        //     }
+        // }
     }
 
     // Check registry for component
@@ -121,4 +161,13 @@ async fn resolve_registry_item(component: &String) -> Result<RegistryItem, Regis
         .await?;
 
     Ok(result)
+}
+
+fn resolve_file_target_path(file: &RegistryItemFile, config: &Config) -> Option<PathBuf> {
+    return match file.item_type {
+        RegistryType::Component => config.resolved_paths.components.clone(),
+        RegistryType::Block => config.resolved_paths.components.clone(),
+        RegistryType::UI => config.resolved_paths.ui.clone(),
+        _ => config.resolved_paths.components.clone(),
+    };
 }
