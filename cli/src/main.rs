@@ -1,3 +1,4 @@
+use crate::commands::build_command::{BuildSchema, build_command};
 use crate::commands::{
     add_command::{AddSchema, add_command},
     init_command::{InitSchema, init_command},
@@ -14,6 +15,7 @@ use thiserror::Error;
 mod commands;
 mod config;
 mod preflights;
+mod schemas;
 mod util;
 
 cfg_if!(
@@ -37,6 +39,9 @@ pub enum MainError {
 
     #[error(transparent)]
     AddError(#[from] commands::add_command::AddError),
+
+    #[error(transparent)]
+    BuildError(#[from] commands::build_command::BuildError),
 }
 
 #[derive(Parser)]
@@ -67,12 +72,16 @@ enum Commands {
     Add {
         #[arg(value_hint = ValueHint::DirPath, default_value = ".", short, long, help = "Directory you want to init into")]
         cwd: PathBuf,
-        #[arg(
-            short = 'C',
-            long,
-            help = "names or urls of components you want to add"
-        )]
+        #[arg(help = "names or urls of components you want to add")]
         components: Vec<String>,
+    },
+    Build {
+        #[arg(value_hint = ValueHint::DirPath, default_value = ".", short, long, help = "Directory you want to build from")]
+        cwd: PathBuf,
+        #[arg(help = "path to registry.json file", value_hint = ValueHint::FilePath, default_value = "./registry.json", short, long)]
+        registry: PathBuf,
+        #[arg(help = "destination directory for json files", value_hint = ValueHint::DirPath, default_value = "./public/r", short, long)]
+        output: PathBuf,
     },
 }
 
@@ -111,6 +120,15 @@ async fn run() -> Result<(), MainError> {
             })
             .await?
         }
+        Commands::Build {
+            cwd,
+            registry,
+            output,
+        } => build_command(BuildSchema {
+            cwd: cwd.clone(),
+            registry: registry.clone(),
+            output: output.clone(),
+        })?,
     }
 
     Ok(())
@@ -119,7 +137,7 @@ async fn run() -> Result<(), MainError> {
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     if let Err(e) = run().await {
-        error!("{}", e);
+        error!("{:#?}", e);
         std::process::exit(1);
     }
 }

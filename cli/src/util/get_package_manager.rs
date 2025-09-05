@@ -1,8 +1,5 @@
 use crate::util::get_package_info::get_package_info;
-use std::{
-    env::{self, current_dir},
-    path::Path,
-};
+use std::env::{self, current_dir};
 
 pub enum PackageRunners {
     PnpmDlx,
